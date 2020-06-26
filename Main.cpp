@@ -1,9 +1,39 @@
 #include <Arduino.h>
 #include <SimpleDHT.h>
 #include <math.h>
+#include <Adafruit_NeoPixel.h>
+
+
+
+
+
+#ifdef __AVR__
+ #include <avr/power.h> // Required for 16 MHz Adafruit Trinket
+#endif
+
+
+
+// When setting up the NeoPixel library, we tell it how many pixels,
+// and which pin to use to send signals. Note that for older NeoPixel
+// strips you might need to change the third parameter -- see the
+// strandtest example for more information on possible values.
+
+#define NUMPIXELS 252 // Popular NeoPixel ring size
+#define PIN        4 // On Trinket or Gemma, suggest changing this to 1
+
+
+Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
+
+
+
+
+
+
 
 using byte = unsigned char; 
 using namespace std; 
+
+
 
 
 
@@ -14,7 +44,7 @@ using namespace std;
 #define       t_ON 1
 #define      t_OFF 100
 #define    t_BLINK 3
-#define    t_GREEN 4
+#define    t_GREEN 253
 #define      t_SET 6
 #define   t_STATUS 7
 #define     t_LEDS 8
@@ -22,13 +52,23 @@ using namespace std;
 #define     t_HELP 10
 #define     t_TEMP 20
 #define     t_ADD  254
-#define     token_length 15
+#define     t_RGB  251
+#define     token_length 16
+
+
+
+
+// Which pin on the Arduino is connected to the NeoPixels?
+
+// How many NeoPixels are attached to the Arduino?
+
 
 
 byte lookUp_array[token_length][4] = 
 {{'l','e',3,t_LED},{'r','e',3,t_RED},{'e','o',3,t_EOL},{'d','1',3,t_D13},{'o','n',2,t_ON},
 {'o','f',3,t_OFF},{'b','l',5,t_BLINK},{'g','r',5,t_GREEN},{'s','e',3,t_SET},{'s','t',6,t_STATUS},
-{'l','e',4,t_LEDS},{'v','e',7,t_VERSION},{'h','e',4,t_HELP},{'t','e',4,t_TEMP},{'a','d',3,t_ADD}};
+{'l','e',4,t_LEDS},{'v','e',7,t_VERSION},{'h','e',4,t_HELP},{'t','e',4,t_TEMP},{'a','d',3,t_ADD},
+{'r','g',3,t_RGB}};
 
 int pinDHT22 = 7;
 SimpleDHT22 dht22(pinDHT22);
@@ -81,6 +121,23 @@ byte number1taken = 0;
 byte addition_array[10] = {0};
 
 
+byte count_digits_red = 0 ;
+byte count_digits_green = 0 ;
+byte count_digits_blue = 0 ; 
+byte redColor = 0;
+byte greenColor = 0;
+byte blueColor = 0; 
+// byte rgbAray[3] = 0;
+byte R_taken = 0 ;
+byte G_taken = 0;
+byte B_taken = 0; 
+byte red_array [3]= {0};
+byte green_array [3]= {0};
+byte blue_array [3]= {0};
+
+
+
+
 
 byte temp1 = 0;
 byte temp2 = 0;
@@ -106,6 +163,28 @@ void ReadTempHumid(){
         temp_read_time = millis();
 
         }
+        
+    
+}
+
+
+void RGB(){
+
+        
+  pixels.clear(); // Set all pixel colors to 'off'
+
+  // The first NeoPixel in a strand is #0, second is 1, all the way up
+  // to the count of pixels minus one.
+  for(int i=0; i<NUMPIXELS; i++) { // For each pixel...
+
+    // pixels.Color() takes RGB values, from 0,0,0 up to 255,255,255
+    // Here we're using a moderately bright green color:
+    pixels.setPixelColor(i, pixels.Color(redColor, greenColor, blueColor));
+
+    pixels.show();   // Send the updated pixel colors to the hardware.
+
+    //delay(DELAYVAL); // Pause before next pass through loop
+  }
         
     
 }
@@ -229,6 +308,16 @@ void setup() {
     pinMode(led, OUTPUT);
     pinMode(2,OUTPUT);
     pinMode(3,OUTPUT);
+  // These lines are specifically to support the Adafruit Trinket 5V 16 MHz.
+  // Any other board, you can remove this part (but no harm leaving it):
+#if defined(__AVR_ATtiny85__) && (F_CPU == 16000000)
+  clock_prescale_set(clock_div_1);
+#endif
+  // END of Trinket-specific code.
+
+  pixels.begin(); // INITIALIZE NeoPixel strip object (REQUIRED)
+
+
 
 }
 
@@ -338,6 +427,40 @@ void loop()
                       if (number1taken == 1 && buffer[i] >= 48 && buffer[i] <= 57) {
                             number_array2_add[count_digits_number2] = buffer[i];
                             count_digits_number2 ++;
+                      }
+
+                    }
+
+
+
+
+
+                   if (tokenBuffer[0] == t_RGB){
+                  
+
+                      if ( buffer[i] >= 48 && buffer[i] <= 57 && R_taken == 0) { 
+              
+                            red_array[count_digits_red] = buffer[i];
+                            count_digits_red ++;
+                      }else{
+                        if (count_digits_red > 0){
+                          R_taken = 1;
+                        }
+                      }
+
+                      if (R_taken == 1 && buffer[i] >= 48 && buffer[i] <= 57) {
+                            green_array[count_digits_green] = buffer[i];
+                            count_digits_green ++;
+                      }else{
+                            if (count_digits_green > 0){
+                          G_taken = 1;
+                        }
+                      }
+
+                    
+                        if (G_taken == 1 && buffer[i] >= 48 && buffer[i] <= 57) {
+                            blue_array[count_digits_blue] = buffer[i];
+                            count_digits_blue ++;
                       }
 
                     }
@@ -523,7 +646,51 @@ void loop()
                         Serial.print(addition); 
 
                 break;
-                     
+
+                case t_RGB: 
+                        Serial.println("R G B: ");
+
+                        temp = count_digits_red - 1 ;
+                        redColor = 0;
+                        for (byte i = 0; i < count_digits_red ; i ++) {
+                        redColor += ( red_array[i]-48 ) * pow(10,temp ) ;
+                        temp --;
+                            if ( temp < 0 ){
+                                 break;
+                            }
+                        }
+
+                        temp = 0;
+
+
+                        temp = count_digits_green - 1;
+                        greenColor = 0;
+                        for (byte i = 0; i < count_digits_green ; i ++) {
+                        greenColor += ( green_array[i]-48 ) * pow(10,temp ) ;
+                        temp --;
+                            if ( temp < 0 ){
+                                 break;
+                            }
+                        }
+
+                        temp = 0;
+
+                        temp = count_digits_blue - 1;
+                        blueColor = 0;
+                        for (byte i = 0; i < count_digits_blue ; i ++) {
+                        blueColor += ( blue_array[i]-48 ) * pow(10,temp ) ;
+                        temp --;
+                            if ( temp < 0 ){
+                                 break;
+                            }
+                        }
+
+                        RGB();
+
+
+                break;
+
+                break;
                 default:
                     Serial.println("INVALID command");
                     break;
@@ -554,6 +721,13 @@ void loop()
                 number1_Add = 0;
                 number2_Add = 0;
                 addition = 0;
+                R_taken = 0 ;
+                G_taken = 0;
+                B_taken = 0;
+
+                count_digits_red   = 0;
+                count_digits_green = 0;
+                count_digits_blue  = 0; 
 
                 for (byte i =0; i < count_digits_number1; i ++){
                   number_array1_add[i] = 0 ;
