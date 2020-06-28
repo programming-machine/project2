@@ -4,6 +4,8 @@
 #include <math.h>
 #include <Adafruit_NeoPixel.h>
 #include <DS3231.h>
+#include <EEPROM.h>
+
 //#include <FastLED.h>
 
 
